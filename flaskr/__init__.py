@@ -21,6 +21,9 @@ def get_db_cursor():
 
 @app.route('/')
 def index():
+    cursor = get_db_cursor()
+    cursor.execute("SELECT * FROM Product")
+    g.products = cursor.fetchall()
     return render_template('index.html')
 
 @app.before_request
