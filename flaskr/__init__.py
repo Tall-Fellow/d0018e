@@ -244,7 +244,7 @@ def add_product():
 
         # Create product
         try:
-            query = db_query(f'INSERT INTO Product VALUES (NULL, "{name}", {price}, {g.user["id"]}, "{categories}", {active})', True)
+            query = db_query(f'INSERT INTO Product VALUES (NULL, "{name}", {price}, {g.user["id"]}, "{categories}", {active}, "Description")', True)
         
         except:
             flash("Failed to create product")
