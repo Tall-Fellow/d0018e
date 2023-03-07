@@ -6,16 +6,19 @@
 
 {% block content %}
   <p>Hello World!</p>
-  
-  <ul>
-
-  {% for j in range(g.prodlen) %}
-    <li><a href="/details/{{g.products[j]['id']}}">{{g.products[j]['name']}}</a>, {{g.products[j]['price']}}kr, {{g.products[j]['category']}}, {% for i in range(g.prodpicscount[j]) %} <img src="static/media/{{g.products[j]['id']}}_{{i}}.jpeg"/> {% endfor %} <form action="/add_to_cart/" method="post">
+  <table>
+    {% for j in range(g.prodlen) %}
+    <tr>
+      <th><a href="/details/{{g.products[j]['id']}}">{{g.products[j]['name']}}</a></th> <th>{{g.products[j]['price']}}kr </th><th> {{g.products[j]['category']}}</th> <th> <form action="/add_to_cart/" method="post">
     <input type="hidden" name="id" value="{{g.products[j]['id']}}">
     <input type="hidden" name="price" value="{{ g.products[j]['price'] }}">
     <input type="number" name="qty" value="1" min="1" required>
     <button type="submit">Buy!</button>
-  </form> </li>
-  {% endfor %}
-</ul>
+  </form> 
+</th>{% for i in range(g.prodpicscount[j]) %} <th><img style="width: calc(50vw / 6);" src="static/media/{{g.products[j]['id']}}_{{i}}.jpeg"/> </th>{% endfor %}
+
+    </tr>
+     {% endfor %}
+
+  </table>
 {% endblock %}
