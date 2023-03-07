@@ -242,6 +242,7 @@ def add_product():
         categories = request.form['category']
         active = request.form['active']
         media = request.files.getlist('media')
+        details = request.form['details']
 
         # Permission check
         if g.user['role'] != "Retailer":
@@ -250,7 +251,7 @@ def add_product():
 
         # Create product
         try:
-            query = db_query(f'INSERT INTO Product VALUES (NULL, "{name}", {price}, {g.user["id"]}, "{categories}", {active}, "Description")', True)
+            query = db_query(f'INSERT INTO Product VALUES (NULL, "{name}", {price}, {g.user["id"]}, "{categories}", {active}, "{details}")', True)
         
         except:
             flash("Failed to create product")
@@ -296,11 +297,12 @@ def update_product():
     name = request.form['name']
     price = request.form['price']
     category = request.form['category']
+    details = request.form['details']
     active = request.form['active']
     #media = request.files.getlist('media') # Implement image upload/removal for future versions
 
     try:
-        db_query(f'UPDATE Product SET name="{name}", price={price}, category="{category}", active={active} WHERE id={product_id}', True)
+        db_query(f'UPDATE Product SET name="{name}", price={price}, category="{category}", details="{details}", active={active} WHERE id={product_id}', True)
 
     except:
         flash("Failed to update product")
