@@ -307,10 +307,57 @@ def update_product():
 
     return redirect(request.referrer)
 
-@app.route('/details/<product>')
-def view_details(product):
-    user_id = session.get('user_id')
-    return render_template('product/details.html')
+@app.route('/details/<product_id>', methods=('GET', 'POST'))
+def view_details(product_id):
+    if request.method == 'POST':
+        user_id = session.get('user_id')
+        if user_id is None:
+            flash("You need to be logged in to review products")
+            return redirect(request.referrer)
+        
+        # Check if user has ordered product
+        queryString = (
+            "SELECT CartItem.orderId "
+            "FROM CartItem "
+            "INNER JOIN `Order` ON CartItem.orderId = `Order`.id "
+           f'WHERE CartItem.productId = {product_id} AND `Order`.isFinished = 1'
+        )
+        query = db_query(queryString)
+        result = query.fetchone()
+
+        if result is None:
+            flash("You need to buy the product before placing a review")
+            return redirect(request.referrer)
+
+        rating = request.form['rating']
+        review = request.form['review']
+        try:
+            query = db_query(f'INSERT INTO Review VALUES ({user_id}, {product_id}, {rating}, "{review}")', True) 
+
+        except:
+            flash("You've already left a review and can't place a new one")
+
+    # Get product details
+    query = db_query(f'SELECT * FROM Product WHERE id = {product_id}')
+    product = query.fetchone()
+
+    if product is None:
+        flash("Couldn't find product")
+        return redirect(url_for('index'))
+
+    if product['active'] == 0:
+        flash("Product can't be viewed since it's inactive")
+        return redirect(url_for('index'))
+    
+    product['media'] = get_media(product['id'])
+    queryString = ("SELECT User.email, Review.rating, Review.review "
+                   "FROM Review "
+                   "INNER JOIN User ON Review.userId = User.id "
+                  f'WHERE Review.productId = {product["id"]}')
+    query = db_query(queryString)
+    product['reviews'] = query.fetchall()
+
+    return render_template('product/details.html', product = product)
 
 @app.route('/cart/', methods=('GET', 'POST'))
 def view_cart():

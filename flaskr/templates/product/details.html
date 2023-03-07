@@ -1,8 +1,39 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}Product details{% endblock %}</h1>
+    <h1>{% block title %}Product details{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
+    <a href="{{ url_for('index') }}">Return</a>
+    {% if product['media'] is not none %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr">
+            {% for media_url in product['media'] %}
+              <img style="width: calc(50vw / 6);" src="/static/media/{{ media_url }}">
+            {% endfor %}
+        </div>
+        <hr />
+    {% endif %}
+    <h2>{{ product['name'] }}</h2>
+    <p>Categories: {{ product['category'] }}</p>
+    <p>Price: {{ product['price'] }} kr</p>
+    <p>{{ product['details'] }}</p>
+    <hr />
+    <h2>Reviews</h2>
+    <!-- Own review section -->
+    <form method="post">
+      <label for="rating">Rating 1-5</label>
+      <input type="number" name="rating" min="1" max="5" required>
+      <br />
+      <textarea name="review" value="" placeholder="Leave a review..." maxlength="1024" required></textarea>
+      <button type="submit">Send</button>
+    </form>
+    <!-- Existing reviews section -->
+    {% if product['reviews']|length != 0 %}
+        {% for review in product['reviews'] %}
+          <p>Rating by {{ review['email'] }}: {{ review['rating'] }}/5</p>
+          <p>{{ review['review'] }}</p>
+          <br />
+        {% endfor %}
+    {% endif %}
 {% endblock %}
