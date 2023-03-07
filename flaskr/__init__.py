@@ -131,7 +131,7 @@ def load_logged_in_user():
 
 @app.get('/')
 def index():
-    g.products = db_query("SELECT * FROM Product").fetchall()
+    g.products = db_query("SELECT * FROM Product WHERE active = 1").fetchall()
     g.prodlen = len(g.products)
     g.prodpicscount = []
     for p in g.products:
