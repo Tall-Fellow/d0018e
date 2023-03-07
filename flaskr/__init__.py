@@ -113,6 +113,11 @@ def load_logged_in_user():
         # Load user data
         query = db_query(f'SELECT * FROM User WHERE id = {user_id}')
         g.user = query.fetchone()
+    
+        if g.user['active'] == 0:
+            session.clear()
+            flash("Your account is not active, contact an admin for assistance")
+            return redirect(url_for('index'))
 
         # Load cart quantity info
         try:
@@ -158,7 +163,7 @@ def register():
 
             try:
                 # Add user to db
-                query = db_query(f'INSERT INTO User VALUES (NULL, "Customer", "{email}", "{password}")', True)
+                query = db_query(f'INSERT INTO User VALUES (NULL, "Customer", "{email}", "{password}", 1)', True)
             
                 # Login user to their new account
                 query = db_query(f'SELECT id FROM User WHERE email = "{email}"')
@@ -216,14 +221,15 @@ def administer_users():
         u_id = request.form['id']
         email = request.form['email']
         role = request.form['role']
+        active = request.form['active']
 
         try:
-            query = db_query(f'UPDATE User SET email = "{email}", role = "{role}" WHERE id = {u_id}', True)
+            query = db_query(f'UPDATE User SET email = "{email}", role = "{role}", active = {active} WHERE id = {u_id}', True)
 
         except:
             flash("Failed to update user")
     
-    query = db_query(f'SELECT id, role, email FROM User')
+    query = db_query(f'SELECT id, role, email, active FROM User')
     users = query.fetchall()
 
     return render_template('admin/users.html', users = users)
@@ -304,8 +310,7 @@ def update_product():
 @app.route('/details/<product>')
 def view_details(product):
     user_id = session.get('user_id')
-    return render_template('details.html')
-
+    return render_template('product/details.html')
 
 @app.route('/cart/', methods=('GET', 'POST'))
 def view_cart():

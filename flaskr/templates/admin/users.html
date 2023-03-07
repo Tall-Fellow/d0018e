@@ -8,7 +8,18 @@
     {% for user in users %}
         <form action="{{ url_for('administer_users') }}" method="post">
             <input type="hidden" name="id" value="{{ user['id'] }}">
+            <label for="email">E-mail / username</label>
             <input type="email" name="email" value="{{ user['email'] }}">
+            <br />
+            <label>Active</label>
+            {% if user['active'] == 1 %}
+                <input type="checkbox" name="active" value="1" checked>
+            {% else %}
+                <input type="checkbox" name="active" value="1">
+            {% endif %}
+            <!-- Unchecked value -->
+            <input type="hidden" name="active" value="0">
+            <label for="role">Role</label>
             <select name="role">
                 <option value="{{ user['role'] }}">Current: {{ user['role'] }}</option>
                 <optgroup>
@@ -21,4 +32,5 @@
         </form>
         <hr>
     {% endfor %}
+    <a href="{{ url_for('index') }}">Return</a>
 {% endblock %}
