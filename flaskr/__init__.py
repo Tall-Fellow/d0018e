@@ -102,6 +102,21 @@ def get_media(product_id):
 
     return urls
 
+def get_products(filterStr = None):
+    if filterStr is None:
+        queryString = "SELECT * FROM Product WHERE active = 1"
+    
+    else:
+        queryString = f'SELECT * FROM Product WHERE active = 1 AND (name LIKE "%{filterStr}%" OR category LIKE "%{filterStr}%")'
+
+    query = db_query(queryString)
+    products = query.fetchall()
+
+    for product in products:
+        product['media'] = get_media(product['id'])
+
+    return products
+
 @app.before_request
 def load_logged_in_user():
     user_id = session.get('user_id')
@@ -131,19 +146,16 @@ def load_logged_in_user():
 
 @app.get('/')
 def index():
-    g.products = db_query("SELECT * FROM Product WHERE active = 1").fetchall()
-    g.prodlen = len(g.products)
-    g.prodpicscount = []
-    for p in g.products:
-        i = 0
-        while(True):
-            filepath = "flaskr/static/media/"+str(p['id'])+"_"+ str(i) +".jpeg"
-            if(os.path.exists(filepath)):
-                i = i + 1
-            else:
-                g.prodpicscount.append(i)
-                break
-    return render_template('index.html')
+    products = get_products()
+
+    return render_template('index.html', products = products)
+
+@app.post('/')
+def search():
+    search_txt = request.form['search_txt']
+    products = get_products(search_txt)
+
+    return render_template('index.html', products = products)
 
 @app.route('/register/', methods=('GET', 'POST'))
 def register():
