@@ -20,6 +20,9 @@
                     <label for="category">Category</label>
                     <input type="text" name="category" id="category" value="{{ product['category'] }}">
                     <br />
+                    <label for="category">Details</label>
+                    <input type="text" name="details" id="details" value="{{ product['details'] }}">
+                    <br />
                     <label for="active">Active</label>
                     {% if product['active'] == 1 %}
                         <input type="checkbox" name="active" value="1" checked>
