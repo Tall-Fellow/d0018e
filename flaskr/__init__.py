@@ -1,6 +1,5 @@
 # TODO: Solve user_id = None crashing site
 
-from MySQLdb import IntegrityError
 from flask import Flask
 from flask_mysqldb import MySQL
 from flask import flash, g, redirect, render_template, request, session, url_for
@@ -19,48 +18,56 @@ app.config['MYSQL_USER']     = 'external'
 app.config['MYSQL_PASSWORD'] = 'password'
 mysql = MySQL(app)
 
-def get_db_cursor():
-    return mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-
-def db_query(query, commit = False):
+def db_query(query: str, data: tuple = None, commit: bool = False):
+    """
+        Executes query using a prepared statement with data. 
+        Query must be formated like: 'SELECT Foo FROM %s'.
+        To commit to database, set commit = True.
+    """
     try:
-        cursor = get_db_cursor()
-        cursor.execute(query)
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute(query, data)
         if commit: mysql.connection.commit()
         return cursor
 
     except Exception as e:
-        print(f"Unable to execute query: '{query}'.\nError: {e}")
+        print(f"Unable to execute query: '{query}' with data '{data}'.\nError: {e}")
         raise
 
-def create_order(userId):
-    query = db_query(f'INSERT INTO `Order` (userId) VALUES ({userId})', True)
-    query = db_query(f'SELECT LAST_INSERT_ID()')
+def create_order(userId: int):
+    """
+        Creates new order for userId and returns it
+    """
+    query = db_query('INSERT INTO `Order` (userId) VALUES (%s)', (userId,), commit = True)
+    query = db_query('SELECT LAST_INSERT_ID()')
     order_id = query.fetchone()['LAST_INSERT_ID()']
-    query = db_query(f'SELECT * FROM `Order` WHERE id = {order_id}')
+    query = db_query('SELECT * FROM `Order` WHERE id = %s', (order_id,))
+
     return query.fetchone()
 
-def update_order_price(order_id):
-    query = db_query(f'SELECT price, numOrdered FROM CartItem WHERE orderId = {order_id}')
+def update_order_price(order_id: int):
+    query = db_query('SELECT price, numOrdered FROM CartItem WHERE orderId = %s', (order_id,))
     order_rows = query.fetchall()
     order_price = 0
+
     try:
         for row in order_rows:
             order_price += (row["price"] * row["numOrdered"])
 
-        query = db_query(f'UPDATE `Order` SET totalPrice = {order_price} WHERE id = {order_id}', True)
+        query = db_query('UPDATE `Order` SET totalPrice = %s WHERE id = %s', (order_price, order_id), commit = True)
 
     except:
         flash("Couldn't update order price")
 
-def update_order(order_id, product_id, qty, price = None):
+def update_order(order_id: int, product_id: int, qty: int, price: float = None):
     # Fetch current product price if no price is given
     if price is None:
-        query = db_query(f'SELECT price FROM Product WHERE id = {product_id}')
+        query = db_query('SELECT price FROM Product WHERE id = %s', (product_id,))
         price = query.fetchone()["price"]
 
     # Search for matches against primary keys
-    query = db_query(f'SELECT numOrdered FROM CartItem WHERE orderId = {order_id} AND productId = {product_id} AND price = {price}')
+    data = (order_id, product_id, price)
+    query = db_query('SELECT numOrdered FROM CartItem WHERE orderId = %s AND productId = %s AND price = %s', data)
     existing = query.fetchone()
 
     # If order row for product with current price doesn't exist create new, else update/remove row
@@ -70,7 +77,8 @@ def update_order(order_id, product_id, qty, price = None):
             return
 
         try:
-            db_query(f'INSERT INTO CartItem VALUES ({order_id}, {product_id}, {qty}, {price})', True)
+            data = (order_id, product_id, qty, price)
+            db_query('INSERT INTO CartItem VALUES (%s, %s, %s, %s)', data, commit = True)
 
         except:
             flash("Order row creation failed")
@@ -79,13 +87,15 @@ def update_order(order_id, product_id, qty, price = None):
     else:
         qty += existing["numOrdered"]
         if qty > 0:
-            queryStr = f'UPDATE CartItem SET numOrdered = {qty} WHERE orderId = {order_id} AND productId = {product_id} and price = {price}'
+            data = (qty, order_id, product_id, price)
+            queryStr = 'UPDATE CartItem SET numOrdered = %s WHERE orderId = %s AND productId = %s AND price = %s'
         
         else:
-            queryStr = f'DELETE FROM CartItem WHERE orderId = {order_id} AND productId = {product_id} and price = {price}'
+            data = (order_id, product_id, price)
+            queryStr = 'DELETE FROM CartItem WHERE orderId = %s AND productId = %s AND price = %s'
 
         try:
-            query = db_query(queryStr, True)
+            query = db_query(queryStr, data, commit = True)
 
         except:
             flash("Unable to modify order rows")
@@ -102,14 +112,16 @@ def get_media(product_id):
 
     return urls
 
-def get_products(filterStr = None):
-    if filterStr is None:
+def get_products(filter: str = None):
+    if filter is None:
+        data = None
         queryString = "SELECT * FROM Product WHERE active = 1"
     
     else:
-        queryString = f'SELECT * FROM Product WHERE active = 1 AND (name LIKE "%{filterStr}%" OR category LIKE "%{filterStr}%")'
+        data = ("%" + filter + "%", "%" + filter + "%")
+        queryString = 'SELECT * FROM Product WHERE active = 1 AND (name LIKE %s OR category LIKE %s)'
 
-    query = db_query(queryString)
+    query = db_query(queryString, data)
     products = query.fetchall()
 
     for product in products:
@@ -126,7 +138,7 @@ def load_logged_in_user():
 
     else:
         # Load user data
-        query = db_query(f'SELECT * FROM User WHERE id = {user_id}')
+        query = db_query('SELECT * FROM User WHERE id = %s', (user_id,))
         g.user = query.fetchone()
     
         if g.user['active'] == 0:
@@ -136,9 +148,9 @@ def load_logged_in_user():
 
         # Load cart quantity info
         try:
-            query = db_query(f'SELECT id FROM `Order` WHERE userId = {user_id} AND isFinished = 0')
+            query = db_query('SELECT id FROM `Order` WHERE userId = %s AND isFinished = 0', (user_id,))
             order_id = query.fetchone()['id']
-            query = db_query(f'SELECT COUNT(orderId) FROM CartItem WHERE orderId = {order_id}')
+            query = db_query('SELECT COUNT(orderId) FROM CartItem WHERE orderId = %s', (order_id,))
             g.user['cartQty'] = query.fetchone()['COUNT(orderId)']
         
         except:
@@ -147,14 +159,12 @@ def load_logged_in_user():
 @app.get('/')
 def index():
     products = get_products()
-
     return render_template('index.html', products = products)
 
 @app.post('/')
 def search():
     search_txt = request.form['search_txt']
     products = get_products(search_txt)
-
     return render_template('index.html', products = products)
 
 @app.route('/register/', methods=('GET', 'POST'))
@@ -175,10 +185,10 @@ def register():
 
             try:
                 # Add user to db
-                query = db_query(f'INSERT INTO User VALUES (NULL, "Customer", "{email}", "{password}", 1)', True)
+                query = db_query('INSERT INTO User VALUES (NULL, "Customer", %s, %s, 1)', (email, password), commit = True)
             
                 # Login user to their new account
-                query = db_query(f'SELECT id FROM User WHERE email = "{email}"')
+                query = db_query('SELECT id FROM User WHERE email = %s', (email,))
                 user = query.fetchone()
                 session.clear()
                 session['user_id'] = user['id']
@@ -200,7 +210,7 @@ def login():
         password = request.form['password']
 
         # Look for existing accounts
-        query = db_query(f'SELECT id, password FROM User WHERE email = "{email}"')
+        query = db_query('SELECT id, password FROM User WHERE email = %s', (email,))
         user = query.fetchone()
 
         error = None
@@ -236,12 +246,13 @@ def administer_users():
         active = request.form['active']
 
         try:
-            query = db_query(f'UPDATE User SET email = "{email}", role = "{role}", active = {active} WHERE id = {u_id}', True)
+            data = (email, role,  active, u_id)
+            query = db_query('UPDATE User SET email = %s, role = %s, active = %s WHERE id = %s', data, commit = True)
 
         except:
             flash("Failed to update user")
     
-    query = db_query(f'SELECT id, role, email, active FROM User')
+    query = db_query('SELECT id, role, email, active FROM User')
     users = query.fetchall()
 
     return render_template('admin/users.html', users = users)
@@ -263,7 +274,8 @@ def add_product():
 
         # Create product
         try:
-            query = db_query(f'INSERT INTO Product VALUES (NULL, "{name}", {price}, {g.user["id"]}, "{categories}", {active}, "{details}")', True)
+            data = (name, price, g.user['id'], categories, active, details)
+            query = db_query('INSERT INTO Product VALUES (NULL, %s, %s, %s, %s, %s, %s)', data, commit = True)
         
         except:
             flash("Failed to create product")
@@ -271,7 +283,7 @@ def add_product():
 
         # Upload media & connect to product
         try:
-            query = db_query(f'SELECT LAST_INSERT_ID()')
+            query = db_query('SELECT LAST_INSERT_ID()')
             product_id = query.fetchone()['LAST_INSERT_ID()']
 
             for i in range(len(media)):
@@ -295,7 +307,7 @@ def manage_products():
         flash("No retailer account was found")
         return redirect(request.referrer)
 
-    query = db_query(f'SELECT * FROM Product WHERE retailerId = {g.user["id"]}')
+    query = db_query('SELECT * FROM Product WHERE retailerId = %s', (g.user['id'],))
     products = query.fetchall()
 
     for product in products:
@@ -314,7 +326,8 @@ def update_product():
     #media = request.files.getlist('media') # Implement image upload/removal for future versions
 
     try:
-        db_query(f'UPDATE Product SET name="{name}", price={price}, category="{category}", details="{details}", active={active} WHERE id={product_id}', True)
+        data = (name, price, category, details, active, product_id)
+        db_query('UPDATE Product SET name=%s, price=%s, category=%s, details=%s, active=%s WHERE id=%s', data, commit = True)
 
     except:
         flash("Failed to update product")
@@ -334,9 +347,9 @@ def view_details(product_id):
             "SELECT CartItem.orderId "
             "FROM CartItem "
             "INNER JOIN `Order` ON CartItem.orderId = `Order`.id "
-           f'WHERE CartItem.productId = {product_id} AND `Order`.isFinished = 1'
+            "WHERE CartItem.productId = %s AND `Order`.isFinished = 1"
         )
-        query = db_query(queryString)
+        query = db_query(queryString, (product_id,))
         result = query.fetchone()
 
         if result is None:
@@ -346,13 +359,14 @@ def view_details(product_id):
         rating = request.form['rating']
         review = request.form['review']
         try:
-            query = db_query(f'INSERT INTO Review VALUES ({user_id}, {product_id}, {rating}, "{review}")', True) 
+            data = (user_id, product_id, rating, review)
+            query = db_query('INSERT INTO Review VALUES (%s, %s, %s, %s)', data, commit = True) 
 
         except:
             flash("You've already left a review and can't place a new one")
 
     # Get product details
-    query = db_query(f'SELECT * FROM Product WHERE id = {product_id}')
+    query = db_query('SELECT * FROM Product WHERE id = %s', (product_id,))
     product = query.fetchone()
 
     if product is None:
@@ -364,11 +378,13 @@ def view_details(product_id):
         return redirect(url_for('index'))
     
     product['media'] = get_media(product['id'])
-    queryString = ("SELECT User.email, Review.rating, Review.review "
-                   "FROM Review "
-                   "INNER JOIN User ON Review.userId = User.id "
-                  f'WHERE Review.productId = {product["id"]}')
-    query = db_query(queryString)
+    queryString = (
+        "SELECT User.email, Review.rating, Review.review "
+        "FROM Review "
+        "INNER JOIN User ON Review.userId = User.id "
+        "WHERE Review.productId = %s"
+    )
+    query = db_query(queryString, (product['id'],))
     product['reviews'] = query.fetchall()
 
     return render_template('product/details.html', product = product)
@@ -376,7 +392,7 @@ def view_details(product_id):
 @app.route('/cart/', methods=('GET', 'POST'))
 def view_cart():
     user_id = session.get('user_id')
-    query = db_query(f'SELECT id, totalPrice FROM `Order` WHERE userId = {user_id} AND isFinished = 0')
+    query = db_query('SELECT id, totalPrice FROM `Order` WHERE userId = %s AND isFinished = 0', (user_id,))
     order_info = query.fetchone()
 
     if order_info is None:
@@ -387,11 +403,13 @@ def view_cart():
         }
     
     else:
-        queryString = ("SELECT Product.id, Product.name, Product.active, CartItem.price, CartItem.numOrdered "
-                       "FROM CartItem "
-                       "INNER JOIN Product ON CartItem.productId = Product.id "
-                      f'WHERE CartItem.orderId = {order_info["id"]}')
-        query = db_query(queryString)
+        queryString = (
+            "SELECT Product.id, Product.name, Product.active, CartItem.price, CartItem.numOrdered "
+            "FROM CartItem "
+            "INNER JOIN Product ON CartItem.productId = Product.id "
+            "WHERE CartItem.orderId = %s"
+        )
+        query = db_query(queryString, (order_info["id"],))
         order_rows = query.fetchall()
 
         active_rows = []
@@ -399,7 +417,7 @@ def view_cart():
             if row['active'] == 0:
                 # Remove from order rows and fetch updated order price
                 update_order(order_info['id'], row['id'], row['numOrdered'] * -1, row['price'])
-                query = db_query(f'SELECT id, totalPrice FROM `Order` WHERE id={order_info["id"]}')
+                query = db_query('SELECT id, totalPrice FROM `Order` WHERE id=%s', (order_info["id"],))
                 order_info = query.fetchone()
                 flash(f'Product {row["name"]} has been removed from cart because retailer has deactived the product')
 
@@ -428,7 +446,7 @@ def add_to_cart():
     elif product_id is None or qty < 1:
         return redirect(request.referrer)
 
-    query = db_query(f'SELECT id FROM `Order` WHERE userId = {user_id} AND isFinished = 0')
+    query = db_query('SELECT id FROM `Order` WHERE userId = %s AND isFinished = 0', (user_id,))
     curr_order = query.fetchone()
 
     if curr_order is None:
@@ -449,7 +467,7 @@ def remove_from_cart():
     if user_id is None or product_id is None or qty > -1:
         return redirect(request.referrer)
 
-    query = db_query(f'SELECT id FROM `Order` WHERE userId = {user_id} AND isFinished = 0')
+    query = db_query('SELECT id FROM `Order` WHERE userId = %s AND isFinished = 0', (user_id,))
     curr_order = query.fetchone()
 
     if curr_order is None:
@@ -464,14 +482,14 @@ def remove_from_cart():
 @app.post('/checkout/')
 def checkout():
     user_id = session.get('user_id')
-    query = db_query(f'SELECT id FROM `Order` WHERE userId = {user_id} AND isFinished = 0')
+    query = db_query('SELECT id FROM `Order` WHERE userId = %s AND isFinished = 0', (user_id,))
     curr_order = query.fetchone()
     if curr_order is None:
         flash("Nothing in cart")
         return redirect(url_for('index'))
 
     try:
-        query = db_query(f'UPDATE `Order` SET isFinished = 1 WHERE id = {curr_order["id"]}', True)
+        query = db_query('UPDATE `Order` SET isFinished = 1 WHERE id = %s', (curr_order["id"],), commit = True)
     
     except:
         flash("Something went wrong when updating order status")
