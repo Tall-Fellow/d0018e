@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Order history{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}">Return</a>
+    <br />
+    <br />
+    {% for order in orders %}
+        <p>Order id: {{ order["id"] }}</p>
+        <table style="width: 50%;">
+            <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Price (sek)</th>
+            </tr>
+            {% for row in order["rows"] %}
+            <tr>
+                <td><a href="/details/{{ row['id'] }}">{{ row["name"] }}</a></td>
+                <td style="text-align: center;">{{ row["numOrdered"] }}</td>
+                <td style="text-align: center;">{{ row["price"] * row["numOrdered"] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <p>Order price: {{ order["totalPrice"] }} kr</p>
+        <hr />
+    {% endfor %}
+{% endblock %}

@@ -21,7 +21,8 @@ mysql = MySQL(app)
 def db_query(query: str, data: tuple = None, commit: bool = False):
     """
         Executes query using a prepared statement with data. 
-        Query must be formated like: 'SELECT Foo FROM %s'.
+        Call function like: db_query('SELECT Foo FROM %s WHERE Bar = %s', (item1, item2)).
+        If there's only one item in data you must include a final comma: (singleItem,). 
         To commit to database, set commit = True.
     """
     try:
@@ -388,6 +389,31 @@ def view_details(product_id):
     product['reviews'] = query.fetchall()
 
     return render_template('product/details.html', product = product)
+
+@app.get('/orders/')
+def order_history():
+    user_id = session.get('user_id')
+    query = db_query('SELECT id, totalPrice FROM `Order` WHERE userId = %s AND isFinished = 1', (user_id,))
+    orders = query.fetchall()
+
+    # Fetch order rows
+    for order in orders:
+        queryString = (
+            "SELECT "
+                "CartItem.price, "
+                "CartItem.numOrdered, "
+                "Product.name, "
+                "Product.id "
+            "FROM CartItem "
+                "INNER JOIN "
+                "Product ON CartItem.productId = Product.id "
+            "WHERE "
+                "CartItem.orderId = %s"
+        )
+        query = db_query(queryString, (order['id'],))
+        order['rows'] = query.fetchall()
+
+    return render_template('order/history.html', orders = orders)
 
 @app.route('/cart/', methods=('GET', 'POST'))
 def view_cart():

@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block content %}
+    <a href="{{ url_for('index') }}">Return</a>
+    <br>
+    <br>
     <p>Order id: {{ cart["id"] }}</p>
     <table style="width: 50%;">
         <tr>
@@ -48,7 +51,4 @@
     <form action="/checkout/" method="post">
         <button type="submit">Buy!</button>
     </form>
-    <br />
-    <br />
-    <a href="{{ url_for('index') }}">Return</a>
 {% endblock %}

@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block content %}
+    <a href="{{ url_for('index') }}">Return</a>
+    <br>
+    <br>
     <p>* - Required fields.</p>
     {% for product in products %}
         <form method="post" enctype="multipart/form-data">
@@ -52,5 +55,4 @@
         </form>
         <hr>
     {% endfor %}
-    <a href="{{ url_for('index') }}">Return</a>
 {% endblock %}

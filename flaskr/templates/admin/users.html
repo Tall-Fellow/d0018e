@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block content %}
+    <a href="{{ url_for('index') }}">Return</a>
+    <br>
+    <br>
     {% for user in users %}
         <form action="{{ url_for('administer_users') }}" method="post">
             <input type="hidden" name="id" value="{{ user['id'] }}">
@@ -32,5 +35,4 @@
         </form>
         <hr>
     {% endfor %}
-    <a href="{{ url_for('index') }}">Return</a>
 {% endblock %}

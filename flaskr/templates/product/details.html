@@ -6,6 +6,8 @@
 
 {% block content %}
     <a href="{{ url_for('index') }}">Return</a>
+    <br>
+    <br>
     {% if product['media'] is not none %}
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr">
             {% for media_url in product['media'] %}
