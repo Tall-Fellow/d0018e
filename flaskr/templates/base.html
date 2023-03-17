@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <nav>
   {% if g.user %}
-    <span>Hello, {{ g.user['email'] }}!</span>
+    <span>Hello, {{ g.user['firstname'] }}!</span>
     {% if g.user['role'] == "Retailer" %}
       <a href="{{ url_for('add_product') }}">Add product</a>
       <a href="{{ url_for('manage_products') }}">Manage products</a>
