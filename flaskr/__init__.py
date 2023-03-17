@@ -39,9 +39,7 @@ def create_order(userId: int):
         Creates new order for userId and returns it
     """
     query = db_query('INSERT INTO `Order` (userId) VALUES (%s)', (userId,))
-    query = db_query('SELECT LAST_INSERT_ID()')
-    order_id = query.fetchone()['LAST_INSERT_ID()']
-    query = db_query('SELECT * FROM `Order` WHERE id = %s', (order_id,))
+    query = db_query('SELECT * FROM `Order` WHERE userId = %s AND isFinished = 0', (userId,))
 
     return query.fetchone()
 
