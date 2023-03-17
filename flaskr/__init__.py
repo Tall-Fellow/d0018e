@@ -12,22 +12,23 @@ app = Flask(__name__)
 
 app.secret_key = 'dev'
 
-app.config['MYSQL_HOST']       = '130.240.200.107'
-app.config['MYSQL_DB']         = 'mydb'
-app.config['MYSQL_USER']       = 'external'
-app.config['MYSQL_PASSWORD']   = 'password'
-app.config['MYSQL_AUTOCOMMIT'] = True
+app.config['MYSQL_HOST']     = '130.240.200.107'
+app.config['MYSQL_DB']       = 'mydb'
+app.config['MYSQL_USER']     = 'external'
+app.config['MYSQL_PASSWORD'] = 'password'
 mysql = MySQL(app)
 
-def db_query(query: str, data: tuple = None):
+def db_query(query: str, data: tuple = None, commit: bool = False):
     """
         Executes query using a prepared statement with data. 
         Call function like: db_query('SELECT Foo FROM %s WHERE Bar = %s', (item1, item2)).
         If there's only one item in data you must include a final comma: (singleItem,). 
+        To commit to database, set commit = True.
     """
     try:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute(query, data)
+        if commit: mysql.connection.commit()
         return cursor
 
     except Exception as e:
@@ -38,7 +39,7 @@ def create_order(userId: int):
     """
         Creates new order for userId and returns it
     """
-    query = db_query('INSERT INTO `Order` (userId) VALUES (%s)', (userId,))
+    query = db_query('INSERT INTO `Order` (userId) VALUES (%s)', (userId,), commit = True)
     query = db_query('SELECT LAST_INSERT_ID()')
     order_id = query.fetchone()['LAST_INSERT_ID()']
     query = db_query('SELECT * FROM `Order` WHERE id = %s', (order_id,))
@@ -54,7 +55,7 @@ def update_order_price(order_id: int):
         for row in order_rows:
             order_price += (row["price"] * row["numOrdered"])
 
-        query = db_query('UPDATE `Order` SET totalPrice = %s WHERE id = %s', (order_price, order_id))
+        query = db_query('UPDATE `Order` SET totalPrice = %s WHERE id = %s', (order_price, order_id), commit = True)
 
     except:
         flash("Couldn't update order price")
@@ -78,7 +79,7 @@ def update_order(order_id: int, product_id: int, qty: int, price: float = None):
 
         try:
             data = (order_id, product_id, qty, price)
-            db_query('INSERT INTO CartItem VALUES (%s, %s, %s, %s)', data)
+            db_query('INSERT INTO CartItem VALUES (%s, %s, %s, %s)', data, commit = True)
 
         except:
             flash("Order row creation failed")
@@ -95,7 +96,7 @@ def update_order(order_id: int, product_id: int, qty: int, price: float = None):
             queryStr = 'DELETE FROM CartItem WHERE orderId = %s AND productId = %s AND price = %s'
 
         try:
-            query = db_query(queryStr, data)
+            query = db_query(queryStr, data, commit = True)
 
         except:
             flash("Unable to modify order rows")
@@ -172,6 +173,12 @@ def register():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        address = request.form['address']
+        zipcode = request.form['zip']
+        phone = request.form['phone']
+        firstname = request.form['firstname']
+        lastname = request.form['lastname']
+
 
         error = None
         if not email:
@@ -185,7 +192,7 @@ def register():
 
             try:
                 # Add user to db
-                query = db_query('INSERT INTO User VALUES (NULL, "Customer", %s, %s, 1)', (email, password))
+                query = db_query('INSERT INTO User VALUES (NULL, "Customer", %s, %s, 1, %s, %s, %s, %s, %s)', (email, password, firstname, lastname, address, zipcode, phone), commit = True)
             
                 # Login user to their new account
                 query = db_query('SELECT id FROM User WHERE email = %s', (email,))
@@ -247,7 +254,7 @@ def administer_users():
 
         try:
             data = (email, role,  active, u_id)
-            query = db_query('UPDATE User SET email = %s, role = %s, active = %s WHERE id = %s', data)
+            query = db_query('UPDATE User SET email = %s, role = %s, active = %s WHERE id = %s', data, commit = True)
 
         except:
             flash("Failed to update user")
@@ -275,7 +282,7 @@ def add_product():
         # Create product
         try:
             data = (name, price, g.user['id'], categories, active, details)
-            query = db_query('INSERT INTO Product VALUES (NULL, %s, %s, %s, %s, %s, %s)', data)
+            query = db_query('INSERT INTO Product VALUES (NULL, %s, %s, %s, %s, %s, %s)', data, commit = True)
         
         except:
             flash("Failed to create product")
@@ -327,7 +334,7 @@ def update_product():
 
     try:
         data = (name, price, category, details, active, product_id)
-        db_query('UPDATE Product SET name=%s, price=%s, category=%s, details=%s, active=%s WHERE id=%s', data)
+        db_query('UPDATE Product SET name=%s, price=%s, category=%s, details=%s, active=%s WHERE id=%s', data, commit = True)
 
     except:
         flash("Failed to update product")
@@ -360,7 +367,7 @@ def view_details(product_id):
         review = request.form['review']
         try:
             data = (user_id, product_id, rating, review)
-            query = db_query('INSERT INTO Review VALUES (%s, %s, %s, %s)', data) 
+            query = db_query('INSERT INTO Review VALUES (%s, %s, %s, %s)', data, commit = True) 
 
         except:
             flash("You've already left a review and can't place a new one")
@@ -514,7 +521,7 @@ def checkout():
         return redirect(url_for('index'))
 
     try:
-        query = db_query('UPDATE `Order` SET isFinished = 1 WHERE id = %s', (curr_order["id"],))
+        query = db_query('UPDATE `Order` SET isFinished = 1 WHERE id = %s', (curr_order["id"],), commit = True)
     
     except:
         flash("Something went wrong when updating order status")
